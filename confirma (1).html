@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Confirma la teva assistència · ELSA Barcelona-UPF</title>
+  <style>
+    :root {
+      --fons: #f5f6f8;
+      --targeta: #ffffff;
+      --text: #1d2433;
+      --suau: #5b6475;
+      --accent: #1f4e8c;
+      --ok: #2e7d32;
+      --error: #b3261e;
+      --avis: #8a5a00;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --fons: #14171c;
+        --targeta: #1e232b;
+        --text: #eef0f4;
+        --suau: #a6adbb;
+        --accent: #7aa7e6;
+        --ok: #81c784;
+        --error: #f2b8b5;
+        --avis: #ffcc80;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--fons);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    main {
+      width: 100%;
+      max-width: 440px;
+      background: var(--targeta);
+      border-radius: 14px;
+      padding: 28px 24px;
+      box-shadow: 0 2px 14px rgba(0, 0, 0, 0.08);
+      text-align: center;
+    }
+    h1 { font-size: 1.3rem; margin: 0 0 8px; }
+    p { margin: 8px 0; line-height: 1.45; color: var(--suau); }
+    .correu { font-weight: 600; color: var(--text); word-break: break-all; }
+    button {
+      margin-top: 18px;
+      width: 100%;
+      padding: 14px 16px;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
+      background: var(--accent);
+      border: 0;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.6; cursor: default; }
+    .estat { margin-top: 18px; font-weight: 600; }
+    .ok { color: var(--ok); }
+    .error { color: var(--error); }
+    .avis { color: var(--avis); }
+    .carregant {
+      display: inline-block;
+      width: 18px; height: 18px;
+      margin-right: 8px;
+      vertical-align: -3px;
+      border: 3px solid var(--suau);
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: gira 0.8s linear infinite;
+    }
+    @keyframes gira { to { transform: rotate(360deg); } }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Confirma la teva assistència</h1>
+
+    <div id="vista-confirmar" hidden>
+      <p>Confirmaràs l'assistència per a:</p>
+      <p class="correu" id="correu"></p>
+      <button id="boto" type="button">Confirmar assistència</button>
+    </div>
+
+    <p class="estat" id="estat" role="status" aria-live="polite"></p>
+  </main>
+
+  <script>
+    // URL de la web app de Apps Script (la de "Gestionar implementacions", acabada en /exec)
+    var WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwtU7Nsh4Qu9zdmnLOcRJtHKcG5ZjBcqVNg-JNtSbyAQ23MmmLJ2MnG63zlcGKaxXH5/exec';
+
+    var estat = document.getElementById('estat');
+    var vista = document.getElementById('vista-confirmar');
+    var boto = document.getElementById('boto');
+
+    function mostrar(text, classe) {
+      estat.className = 'estat ' + (classe || '');
+      estat.textContent = text;
+    }
+
+    var email = (new URLSearchParams(window.location.search).get('email') || '').trim();
+
+    if (!email) {
+      mostrar("Enllaç no vàlid. Torna a obrir el botó del correu.", 'error');
+    } else {
+      document.getElementById('correu').textContent = email;
+      vista.hidden = false;
+    }
+
+    boto.addEventListener('click', function () {
+      boto.disabled = true;
+      estat.className = 'estat';
+      estat.innerHTML = '<span class="carregant"></span>Confirmant…';
+
+      // Petició GET anònima i sense capçaleres personalitzades: no depèn de cap sessió de Google
+      var url = WEBAPP_URL + '?accion=confirmar&formato=json&email=' + encodeURIComponent(email);
+
+      fetch(url, { method: 'GET', credentials: 'omit', redirect: 'follow' })
+        .then(function (resposta) { return resposta.json(); })
+        .then(function (dades) {
+          switch (dades.estado) {
+            case 'ok':
+              vista.hidden = true;
+              mostrar('Gràcies! La teva assistència ha estat confirmada.', 'ok');
+              break;
+            case 'no-trobat':
+              boto.disabled = false;
+              mostrar("No hem trobat la teva inscripció amb aquest correu. Escriu-nos i ho revisem.", 'avis');
+              break;
+            case 'enllac-invalid':
+              vista.hidden = true;
+              mostrar("Enllaç no vàlid. Torna a obrir el botó del correu.", 'error');
+              break;
+            default:
+              boto.disabled = false;
+              mostrar("Hi ha hagut un error. Torna-ho a provar més tard.", 'error');
+          }
+        })
+        .catch(function () {
+          boto.disabled = false;
+          mostrar("No s'ha pogut connectar. Comprova la connexió i torna-ho a provar.", 'error');
+        });
+    });
+  </script>
+</body>
+</html>
